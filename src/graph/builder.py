@@ -38,5 +38,5 @@ def build_graph():
     builder.add_node("reporter", reporter_node)  # 报告员：撰写最终报告
 
     # 编译图，使其成为一个可执行的对象
-    # 注意：这里的路由逻辑是隐式的，在每个节点函数内部通过返回的Command对象的goto字段来指定
+    # 注意：这里的路由逻辑是隐式的，在每个节点函数内部通过返回的Command对象的goto字段来指定，每个节点之间的跳转关系。
     return builder.compile()

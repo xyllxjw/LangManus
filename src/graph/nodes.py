@@ -32,7 +32,7 @@ def research_node(state: State) -> Command[Literal["supervisor"]]:
                        固定将流程交回给'supervisor'。
     """
     logger.info("研究员Agent开始执行任务")
-    result = research_agent.invoke({"messages": state["messages"]})
+    result = research_agent.invoke({"messages": state["messages"]}) # 调用AgentExecutor的invoke方法执行Agent
     logger.info("研究员Agent完成任务")
     logger.debug(f"研究员Agent的响应: {result['output']}")
     # 返回一个Command，更新messages状态，并将流程固定地交给supervisor
@@ -116,7 +116,11 @@ def supervisor_node(state: State) -> Command[Literal[*TEAM_MEMBERS, "__end__"]]:
     logger.info("监督员正在评估下一步行动")
     # 应用supervisor的prompt模板
     messages = apply_prompt_template("supervisor", state)
+
     # 调用一个具有结构化输出能力的LLM，强制其返回Router格式的决策
+    # .with_structured_output(Router) 是最关键的一步。它强制要求 LLM 的输出必须符合预定义的 Router Pydantic 模型格式。
+    # 这保证了决策结果的稳定性和可靠性，是构建健壮 Agent 的最佳实践。
+    # .invoke(messages) 将准备好的 Prompt 发送给 LLM，并获取返回的、已经自动解析为 Router 对象的 response。
     response = (
         get_llm_by_type(AGENT_LLM_MAP["supervisor"])
         .with_structured_output(Router)
@@ -137,7 +141,11 @@ def supervisor_node(state: State) -> Command[Literal[*TEAM_MEMBERS, "__end__"]]:
     # 返回只包含路由指令的Command
     return Command(goto=goto, update={"next": goto})
 
+# 规划师Agent节点，负责将用户的模糊意图或高级目标，转换成一个详细、具体、结构化的行动计划。
+# 根据用户的初始请求，并可选地结合实时搜索结果和更强的思考模型，生成一个机器可读的、分步的 JSON 格式行动计划。
+# 它是将用户需求转化为具体执行步骤的关键第一步。
 
+# @track_node("planner"): 一个自定义装饰器，可能用于日志记录、性能监控或调试，以追踪此节点的执行情况。
 @track_node("planner")
 def planner_node(state: State) -> Command[Literal["supervisor", "__end__"]]:
     """
@@ -148,15 +156,22 @@ def planner_node(state: State) -> Command[Literal["supervisor", "__end__"]]:
     """
     logger.info("规划师正在生成完整计划")
     messages = apply_prompt_template("planner", state)
+
     # 根据是否启用'deep_thinking_mode'选择不同能力的LLM，(basic, reasoning，vision三种llm模型)
     llm = get_llm_by_type("basic")
     if state.get("deep_thinking_mode"):
         llm = get_llm_by_type("reasoning")
+
     # 如果需要，在规划前先进行网络搜索
+    # 这是另一个强大的可选功能。如果启用了该选项，节点会先调用搜索引擎工具 `tavily_tool`。
+    # 然后，它会将搜索到的最新信息追加到发送给 LLM 的 Prompt 中。这使得 LLM 能够基于最新的、实时的网络信息来制定计划，
+    # 而不是仅仅依赖其内部知识，从而大大提高了计划的相关性和准确性。
     if state.get("search_before_planning"):
         searched_content = tavily_tool.invoke({"query": state["messages"][-1]["content"]})
         messages = deepcopy(messages)
         messages[-1]["content"] += f"\n\n# Relative Search Results\n\n{json.dumps([{'title': elem['title'], 'content': elem['content']} for elem in searched_content if elem.get('content')], ensure_ascii=False)}"
+    
+    #  调用LLM，生成计划
     stream = llm.stream(messages)
     full_response = ""
     for chunk in stream:
@@ -187,7 +202,8 @@ def planner_node(state: State) -> Command[Literal["supervisor", "__end__"]]:
         goto=goto,
     )
 
-
+# 协调员Agent节点，作为工作流的入口。
+# 进行初步的任务甄别，快速判断用户的请求是一个可以简单直接回答的问题，还是一个需要启动整个多 Agent 协作流程来完成的复杂任务。
 def coordinator_node(state: State) -> Command[Literal["planner", "__end__"]]:
     """
     协调员Agent节点，作为工作流的入口。
@@ -203,7 +219,13 @@ def coordinator_node(state: State) -> Command[Literal["planner", "__end__"]]:
     logger.debug(f"协调员的响应: {response}")
 
     goto = "__end__"
+    
     # 如果LLM的响应包含特定关键词，则将任务移交给规划师
+    # 这是此节点**最核心的逻辑**，也是最简单的部分。
+    # 它设置了一个默认的路由 `goto = "__end__"`。
+    # 然后，它检查 LLM 返回的 `response.content`（文本内容）中是否包含一个特定的**魔法关键词/信号——`"handoff_to_planner"`**。
+    # 如果包含了这个信号，就意味着 LLM 判断出这是一个复杂任务，需要规划，于是将 `goto` 的值修改为 `"planner"`。
+    # 如果不包含，`goto` 保持默认值 `__end__`，工作流就此结束。
     if "handoff_to_planner" in response.content:
         goto = "planner"
 

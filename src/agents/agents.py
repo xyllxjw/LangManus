@@ -11,7 +11,9 @@ from src.prompts.template import get_prompt_template
 from src.config.agents import AGENT_LLM_MAP
 from src.agents.llm import get_llm_by_type
 
+# Agent文件和源码相差很大
 
+# 创建Agent的工厂函数,返回的是AgentExecutor，可以调用invoke方法执行Agent
 def create_agent(agent_type: str, tools: list):
     """
     一个通用的Agent创建工厂函数。
@@ -49,6 +51,8 @@ def create_agent(agent_type: str, tools: list):
         agent=agent_runnable, tools=tools, handle_parsing_errors=True, verbose=True
     )
 
+
+# 对三个需要调用工具干活的node配置Agent，添加tool。 为每个Agent创建一个AgentExecutor。
 
 # 创建研究员Agent，为其配备搜索引擎工具
 research_agent = create_agent(

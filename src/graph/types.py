@@ -44,5 +44,5 @@ class State(TypedDict):
     search_before_planning: bool
 
     # intermediate_steps: 用于存储Agent在执行任务过程中的中间步骤（例如工具调用和其返回结果）。
-    # 这对于调试和让Agent拥有短期记忆至关重要。
+    # 这对于调试和让Agent拥有短期记忆至关重要。但是其它地方好像都没有用的。
     intermediate_steps: Annotated[list, operator.add]

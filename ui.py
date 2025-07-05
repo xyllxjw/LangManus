@@ -37,7 +37,7 @@ if prompt := st.chat_input("请输入您的问题..."):
     # 2. 准备请求数据
     api_payload = {
         "messages": [{"role": "user", "content": prompt}],
-        "debug": False
+        "debug": True
     }
     
     headers = {

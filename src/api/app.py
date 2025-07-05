@@ -43,9 +43,18 @@ app.add_middleware(
 # 在应用启动时，构建并编译LangGraph工作流图
 graph = build_graph()
 
-
+# 根据 type 字段的值来决定是填充 text 字段还是 image_url 字段，从而支持多模态内容（如文本和图片）。
 class ContentItem(BaseModel):
-    """定义了多模态内容项的数据结构。"""
+    """定义了多模态内容项的数据结构。
+
+    1. type 的属性，
+    必须是字符串类型。是必填项，不能省略。
+    在 API 文档中会显示它的描述为 "The type of content (text, image, etc.)"，用来指明内容的具体类型，比如是文本 ('text') 还是图片 ('image')。
+
+    2. text：用于存储文本内容，可以不提供，默认为 None。
+    3. image_url：用于存储图片的URL，也可以不提供，默认为 None。
+    这种设计使得 ContentItem 模型非常灵活，可以根据 type 字段的值来决定是填充 text 字段还是 image_url 字段，从而支持多模态内容（如文本和图片）。
+    """
 
     type: str = Field(..., description="The type of content (text, image, etc.)")
     text: Optional[str] = Field(None, description="The text content if type is 'text'")
@@ -53,9 +62,14 @@ class ContentItem(BaseModel):
         None, description="The image URL if type is 'image'"
     )
 
-
+# 单条聊天消息的数据结构
 class ChatMessage(BaseModel):
-    """定义了单条聊天消息的数据结构。"""
+    """定义了单条聊天消息的数据结构。
+    巧妙地定义了一个 content 字段，使其能够同时接受两种不同结构的数据：
+    对于简单的纯文本聊天，可以直接传入一个字符串。
+    对于需要发送文本、图片或未来其他类型媒体组合的复杂消息，可以传入一个 ContentItem 对象的列表。
+    这种设计使得 ChatMessage 模型既简单易用又能满足复杂场景的需求，是构建现代聊天 API 时非常实用的一种模式。
+    """
 
     role: str = Field(
         ..., description="The role of the message sender (user or assistant)"
@@ -65,9 +79,11 @@ class ChatMessage(BaseModel):
         description="The content of the message, either a string or a list of content items",
     )
 
-
+# 聊天请求的完整数据结构
 class ChatRequest(BaseModel):
-    """定义了聊天请求的完整数据结构。"""
+    """定义了聊天请求的完整数据结构。
+    
+    """
 
     messages: List[ChatMessage] = Field(..., description="The conversation history")
     debug: Optional[bool] = Field(False, description="Whether to enable debug logging")

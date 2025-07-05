@@ -58,7 +58,9 @@ async def run_agent_workflow(
     # 为本次工作流生成一个唯一的ID
     workflow_id = str(uuid.uuid4())
 
-    # 定义哪些Agent的LLM调用需要被流式传输
+    # 定义哪些Agent的LLM调用需要被流式传输，TEAM_MEMBERS包括了四种Agent：researcher、coder、browser、reporter，
+    # 另外，planner和coordinator也需要被流式传输，因为它们是工作流的入口和出口。
+    # 那为什么supervisor不需要被流式传输呢？
     streaming_llm_agents = [*TEAM_MEMBERS, "planner", "coordinator"]
 
     # 在每次工作流开始时重置缓存
@@ -130,6 +132,7 @@ async def run_agent_workflow(
                 "event": "end_of_llm",
                 "data": {"agent_name": node},
             }
+        #如果事件类型
         elif kind == "on_chat_model_stream" and node in streaming_llm_agents:
             content = data["chunk"].content
             if content is None or content == "":

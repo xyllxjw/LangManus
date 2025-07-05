@@ -22,3 +22,5 @@ if __name__ == "__main__":
         reload=True,
         log_level="info",
     )
+
+# 打开 http://localhost:8000/docs 查看fastapi自动生成的API文档
